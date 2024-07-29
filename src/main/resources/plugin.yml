@@ -1,0 +1,6 @@
+name: HideDebris
+version: '${project.version}'
+main: xyz.skyfalls.hidedebris.HideDebris
+api-version: '1.20'
+prefix: HideDebris
+load: POSTWORLD

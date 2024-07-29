@@ -1,0 +1,7 @@
+worlds:
+  - world_nether
+hide-debris-below: 60
+checker-threads-count: 4
+migrate-on-load: true
+batch-size: 10
+ticks-between-batches: 15
