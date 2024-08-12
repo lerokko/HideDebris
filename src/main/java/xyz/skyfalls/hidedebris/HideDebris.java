@@ -16,7 +16,7 @@ public final class HideDebris extends JavaPlugin implements Listener {
     private final Logger log = this.getLogger();
     // config is intentionally left null to prevent uninitialized usage
     private Config config;
-    private Thread worldMigratorThread;
+    private WorldMigrator worldMigratorThread;
 
     @Override
     public void onEnable() {
@@ -37,21 +37,9 @@ public final class HideDebris extends JavaPlugin implements Listener {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            worldMigratorThread = new Thread(() -> {
-                var worldMigrator = new WorldMigrator(this, this.config.hideDebrisBelow, this.config.checkerThreadCount);
-                for (World e : this.config.worlds) {
-                    log.info("Starting background migration for world " + e.getName());
-                    try {
-                        worldMigrator.migrate(e, cachePath, this.config.batchSize, this.config.ticksPerBatch);
-                    } catch (IOException ex) {
-                        log.warning("World migration failed due to error");
-                        ex.printStackTrace();
-                        break;
-                    }
-                }
-                log.info("All worlds have been migrated, cleaning up");
-                worldMigrator.close();
-            }, "HideDebrisWorldMigrator");
+            worldMigratorThread = new WorldMigrator(this, this.config.hideDebrisBelow,
+                    this.config.checkerThreadCount, this.config.worlds, cachePath,
+                    this.config.batchSize, this.config.ticksPerBatch);
             worldMigratorThread.start();
         }
     }
@@ -61,8 +49,15 @@ public final class HideDebris extends JavaPlugin implements Listener {
         if (worldMigratorThread != null) {
             worldMigratorThread.interrupt();
             log.info("Waiting for WorldMigrator thread to quit");
-            for (int i = 0; i < 20; i++) {
-                if (worldMigratorThread.isAlive()) {
+            for (int i = 0; ; i++) {
+                if (!worldMigratorThread.isAlive()) {
+                    break;
+                }
+                if (i > 40) {
+                    // this might happen due to a bukkit issue causing a dead-lock in Chunk.isGenerated
+                    // it does not happen for /reload, which also disable the plugin but doesn't unload the world
+                    log.warning("WorldMigrator thread did not respond, force quitting");
+                    worldMigratorThread.forceExit();
                     break;
                 }
                 try {
